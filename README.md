@@ -25,6 +25,19 @@
 
 ---
 
+## 📸 Screenshots
+
+<div align="center">
+
+### Black-Scholes Model
+![Black-Scholes Visualizer](./screenshots/black-scholes.png)
+![Black-Scholes 3D](./screenshots/black-scholes-3D.png)
+*Interactive Black-Scholes pricing with real-time Greeks calculation*
+
+</div>
+
+---
+
 ## 📦 Key Components
 
 - **`BlackScholesVisualizer`** - Interactive Black-Scholes model with Greeks
