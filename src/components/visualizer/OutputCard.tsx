@@ -9,6 +9,7 @@ interface OutputCardProps {
   type: "call" | "put";
   isHighlighted?: boolean;
   onClick?: () => void;
+  isLoading?: boolean;
 }
 
 export function OutputCard({
@@ -17,44 +18,32 @@ export function OutputCard({
   type,
   isHighlighted = false,
   onClick,
+  isLoading = false,
 }: OutputCardProps) {
-  const isCall = type === "call";
-
   return (
     <div
       onClick={onClick}
       className={cn(
-        "relative p-6 rounded-xl cursor-pointer transition-all duration-200",
-        "backdrop-blur-xl border",
-        isCall
-          ? "bg-[#00d9ff]/10 border-[#00d9ff]/30 hover:border-[#00d9ff]/50"
-          : "bg-[#ffb020]/10 border-[#ffb020]/30 hover:border-[#ffb020]/50",
-        isHighlighted && isCall && "ring-2 ring-[#00d9ff]/50 shadow-[0_0_30px_rgba(0,217,255,0.2)]",
-        isHighlighted && !isCall && "ring-2 ring-[#ffb020]/50 shadow-[0_0_30px_rgba(255,176,32,0.2)]",
-        "hover:scale-[1.02] active:scale-[0.98]"
+        "relative p-4 border border-[#1a1a1a] bg-[#0a0a0a] cursor-pointer",
+        "font-mono transition-all duration-100",
+        isHighlighted && "border-[#00ff00] bg-[#0a1a0a]"
       )}
     >
-      <div className="space-y-2">
-        <p className={cn(
-          "text-sm font-medium uppercase tracking-wider",
-          isCall ? "text-[#00d9ff]/80" : "text-[#ffb020]/80"
-        )}>
+      <div className="space-y-1">
+        <p className="text-xs uppercase tracking-wider text-[#666666] font-medium">
           {label}
         </p>
-        <p className={cn(
-          "font-mono text-4xl font-bold tabular-nums",
-          isCall ? "text-[#00d9ff]" : "text-[#ffb020]"
-        )}>
-          ${value.toFixed(2)}
+        <p className="text-2xl font-bold tabular-nums text-[#00ff00]">
+          {isLoading ? (
+            <span className="text-[#666666] animate-pulse">...</span>
+          ) : (
+            `$${value.toFixed(4)}`
+          )}
         </p>
       </div>
-      <div
-        className={cn(
-          "absolute inset-0 rounded-xl opacity-0 transition-opacity duration-200",
-          isCall ? "bg-[#00d9ff]/5" : "bg-[#ffb020]/5",
-          "group-hover:opacity-100"
-        )}
-      />
+      {isHighlighted && (
+        <div className="absolute top-0 left-0 w-1 h-full bg-[#00ff00]" />
+      )}
     </div>
   );
 }
