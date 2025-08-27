@@ -154,3 +154,26 @@ export function generateDeltaCurve(
 
   return { spotPrices, callDeltas, putDeltas };
 }
+
+// Generate call and put price curve data for charting
+export function generateCallPutCurve(
+  baseParams: BlackScholesParams,
+  spotPriceRange: { min: number; max: number; steps: number }
+): { spotPrices: number[]; callPrices: number[]; putPrices: number[] } {
+  const spotPrices: number[] = [];
+  const callPrices: number[] = [];
+  const putPrices: number[] = [];
+
+  const step = (spotPriceRange.max - spotPriceRange.min) / spotPriceRange.steps;
+
+  for (let i = 0; i <= spotPriceRange.steps; i++) {
+    const spotPrice = spotPriceRange.min + i * step;
+    spotPrices.push(spotPrice);
+
+    const result = calculateBlackScholes({ ...baseParams, spotPrice });
+    callPrices.push(result.callPrice);
+    putPrices.push(result.putPrice);
+  }
+
+  return { spotPrices, callPrices, putPrices };
+}

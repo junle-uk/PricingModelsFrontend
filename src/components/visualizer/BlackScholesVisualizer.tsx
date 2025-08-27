@@ -6,9 +6,11 @@ import { ParameterInput } from "./ParameterInput";
 import { OutputCard } from "./OutputCard";
 import { GreekCard } from "./GreekCard";
 import { DeltaChart } from "./DeltaChart";
+import { CallAndPutChart } from "./CallAndPutChart";
 import {
   calculateGreeks,
   generateDeltaCurve,
+  generateCallPutCurve,
   type BlackScholesParams,
 } from "@/lib/black-scholes";
 import { RotateCcw } from "lucide-react";
@@ -119,6 +121,12 @@ export function BlackScholesVisualizer() {
     return generateDeltaCurve(params, { min: minSpot, max: maxSpot, steps: 100 });
   }, [params]);
 
+  const callPutCurveData = useMemo(() => {
+    const minSpot = Math.max(1, params.strikePrice * 0.5);
+    const maxSpot = params.strikePrice * 1.5;
+    return generateCallPutCurve(params, { min: minSpot, max: maxSpot, steps: 100 });
+  }, [params]);
+
   return (
     <div className="min-h-screen w-full bg-black text-green-400 font-mono">
       <div className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
@@ -178,7 +186,7 @@ export function BlackScholesVisualizer() {
                 value={params.volatility}
                 onChange={(v) => updateParam("volatility", v)}
                 min={0.01}
-                max={1}
+                max={1.0}
                 step={0.01}
                 unit="%"
                 formatValue={(v) => (v * 100).toFixed(0)}
@@ -241,6 +249,25 @@ export function BlackScholesVisualizer() {
             }
             isLoading={isLoading}
           />
+        </div>
+
+        {/* Call and Put vs Spot Price Chart */}
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+          <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+            <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+              CALL AND PUT vs SPOT PRICE
+            </h2>
+          </div>
+          <div className="h-[300px]">
+            <CallAndPutChart
+              spotPrices={callPutCurveData.spotPrices}
+              callPrices={callPutCurveData.callPrices}
+              putPrices={callPutCurveData.putPrices}
+              currentSpotPrice={params.spotPrice}
+              strikePrice={params.strikePrice}
+              highlightedLine={highlightedLine}
+            />
+          </div>
         </div>
 
         {/* Delta Chart */}
