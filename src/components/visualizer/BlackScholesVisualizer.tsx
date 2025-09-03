@@ -15,6 +15,10 @@ import {
 } from "@/lib/black-scholes";
 import { RotateCcw } from "lucide-react";
 import { fetchBlackScholes, type BlackScholesResult } from "@/api/BlackScholes";
+import { fetchGreeksCurve } from "@/api/greeks";
+import { fetchSurface3D } from "@/api/surface3d";
+import { GreeksChart } from "./GreeksChart";
+import { Surface3DChart } from "./Surface3DChart";
 import Link from "next/link";
 
 const DEFAULT_PARAMS: BlackScholesParams = {
@@ -39,6 +43,17 @@ export function BlackScholesVisualizer() {
   const [isLoading, setIsLoading] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMountRef = useRef(true);
+  const [gammaCurve, setGammaCurve] = useState<{ xValues: number[]; yValues: number[] } | null>(null);
+  const [vegaCurve, setVegaCurve] = useState<{ xValues: number[]; yValues: number[] } | null>(null);
+  const [thetaCurve, setThetaCurve] = useState<{ xValues: number[]; yValues: number[] } | null>(null);
+  const [surfaceData, setSurfaceData] = useState<{
+    spotPrices: number[];
+    times: number[];
+    callPrices: number[][];
+    putPrices: number[][];
+  } | null>(null);
+  const [showCallSurface, setShowCallSurface] = useState(true);
+  const [showPutSurface, setShowPutSurface] = useState(true);
 
   const updateParam = useCallback(
     <K extends keyof BlackScholesParams>(key: K, value: BlackScholesParams[K]) => {
@@ -125,6 +140,75 @@ export function BlackScholesVisualizer() {
     const minSpot = Math.max(1, params.strikePrice * 0.5);
     const maxSpot = params.strikePrice * 1.5;
     return generateCallPutCurve(params, { min: minSpot, max: maxSpot, steps: 100 });
+  }, [params]);
+
+  // Fetch Greeks curves from backend
+  useEffect(() => {
+    const fetchCurves = async () => {
+      const minSpot = Math.max(1, params.strikePrice * 0.5);
+      const maxSpot = params.strikePrice * 1.5;
+      
+      try {
+        const [gamma, vega, theta] = await Promise.all([
+          fetchGreeksCurve({
+            ...params,
+            rangeMin: minSpot,
+            rangeMax: maxSpot,
+            steps: 100,
+            curveType: "gamma",
+          }),
+          fetchGreeksCurve({
+            ...params,
+            rangeMin: minSpot,
+            rangeMax: maxSpot,
+            steps: 100,
+            curveType: "vega",
+          }),
+          fetchGreeksCurve({
+            ...params,
+            rangeMin: 0.01,
+            rangeMax: params.timeToMaturity * 2,
+            steps: 100,
+            curveType: "theta",
+          }),
+        ]);
+        setGammaCurve(gamma);
+        setVegaCurve(vega);
+        setThetaCurve(theta);
+      } catch (error) {
+        console.error("Error fetching Greeks curves:", error);
+      }
+    };
+
+    const timer = setTimeout(fetchCurves, DEBOUNCE_DELAY);
+    return () => clearTimeout(timer);
+  }, [params]);
+
+  // Fetch 3D surface data
+  useEffect(() => {
+    const fetchSurface = async () => {
+      const minSpot = Math.max(1, params.strikePrice * 0.5);
+      const maxSpot = params.strikePrice * 1.5;
+      
+      try {
+        const data = await fetchSurface3D({
+          ...params,
+          spotMin: minSpot,
+          spotMax: maxSpot,
+          timeMin: 0.01,
+          timeMax: params.timeToMaturity * 2,
+          spotSteps: 30,
+          timeSteps: 30,
+          model: "black-scholes",
+        });
+        setSurfaceData(data);
+      } catch (error) {
+        console.error("Error fetching surface data:", error);
+      }
+    };
+
+    const timer = setTimeout(fetchSurface, DEBOUNCE_DELAY * 2);
+    return () => clearTimeout(timer);
   }, [params]);
 
   return (
@@ -288,6 +372,112 @@ export function BlackScholesVisualizer() {
             />
           </div>
         </div>
+
+        {/* Gamma Chart */}
+        {gammaCurve && (
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                GAMMA vs SPOT PRICE
+              </h2>
+            </div>
+            <div className="h-[300px]">
+              <GreeksChart
+                xValues={gammaCurve.xValues}
+                yValues={gammaCurve.yValues}
+                xLabel="SPOT PRICE (S)"
+                yLabel="Γ"
+                title="GAMMA"
+                currentX={params.spotPrice}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Vega Chart */}
+        {vegaCurve && (
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                VEGA vs SPOT PRICE
+              </h2>
+            </div>
+            <div className="h-[300px]">
+              <GreeksChart
+                xValues={vegaCurve.xValues}
+                yValues={vegaCurve.yValues}
+                xLabel="SPOT PRICE (S)"
+                yLabel="ν"
+                title="VEGA"
+                currentX={params.spotPrice}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Theta Chart */}
+        {thetaCurve && (
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                THETA vs TIME
+              </h2>
+            </div>
+            <div className="h-[300px]">
+              <GreeksChart
+                xValues={thetaCurve.xValues}
+                yValues={thetaCurve.yValues}
+                xLabel="TIME TO EXPIRY (T)"
+                yLabel="Θ"
+                title="THETA"
+                currentX={params.timeToMaturity}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 3D Surface Chart */}
+        {surfaceData && (
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                  3D OPTION PRICE SURFACE
+                </h2>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-xs text-[#666666]">
+                    <input
+                      type="checkbox"
+                      checked={showCallSurface}
+                      onChange={(e) => setShowCallSurface(e.target.checked)}
+                      className="accent-[#00ff00]"
+                    />
+                    CALL
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-[#666666]">
+                    <input
+                      type="checkbox"
+                      checked={showPutSurface}
+                      onChange={(e) => setShowPutSurface(e.target.checked)}
+                      className="accent-[#ff0000]"
+                    />
+                    PUT
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="h-[500px]">
+              <Surface3DChart
+                spotPrices={surfaceData.spotPrices}
+                times={surfaceData.times}
+                callPrices={surfaceData.callPrices}
+                putPrices={surfaceData.putPrices}
+                showCall={showCallSurface}
+                showPut={showPutSurface}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Greeks Mini-Dashboard */}
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
