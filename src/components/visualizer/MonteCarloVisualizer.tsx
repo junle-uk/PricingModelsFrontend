@@ -1,0 +1,537 @@
+"use client";
+
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { ParameterSlider } from "./ParameterSlider";
+import { ParameterInput } from "./ParameterInput";
+import { OutputCard } from "./OutputCard";
+import { CallAndPutChart } from "./CallAndPutChart";
+import { DeltaChart } from "./DeltaChart";
+import { GreeksChart } from "./GreeksChart";
+import { Surface3DChart } from "./Surface3DChart";
+import { RotateCcw } from "lucide-react";
+import { fetchMonteCarlo } from "@/api/monteCarlo";
+import { fetchGreeksCurve } from "@/api/greeks";
+import { fetchSurface3D } from "@/api/surface3d";
+import { calculateGreeks, generateDeltaCurve, generateCallPutCurve } from "@/lib/black-scholes";
+import type { BlackScholesParams } from "@/lib/black-scholes";
+import Link from "next/link";
+
+interface MonteCarloParams {
+  spotPrice: number;
+  strikePrice: number;
+  timeToMaturity: number;
+  volatility: number;
+  riskFreeRate: number;
+  simulations: number;
+}
+
+const DEFAULT_PARAMS: MonteCarloParams = {
+  spotPrice: 100,
+  strikePrice: 100,
+  timeToMaturity: 1,
+  volatility: 0.2,
+  riskFreeRate: 0.05,
+  simulations: 10000,
+};
+
+const DEBOUNCE_DELAY = 500; // Longer delay for Monte Carlo
+
+export function MonteCarloVisualizer() {
+  const [params, setParams] = useState<MonteCarloParams>(DEFAULT_PARAMS);
+  const [highlightedLine, setHighlightedLine] = useState<"call" | "put" | null>(null);
+  const [results, setResults] = useState({ callPrice: 0, putPrice: 0 });
+  const [isLoading, setIsLoading] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMountRef = useRef(true);
+  const [gammaCurve, setGammaCurve] = useState<{ xValues: number[]; yValues: number[] } | null>(null);
+  const [vegaCurve, setVegaCurve] = useState<{ xValues: number[]; yValues: number[] } | null>(null);
+  const [thetaCurve, setThetaCurve] = useState<{ xValues: number[]; yValues: number[] } | null>(null);
+  const [surfaceData, setSurfaceData] = useState<{
+    spotPrices: number[];
+    times: number[];
+    callPrices: number[][];
+    putPrices: number[][];
+  } | null>(null);
+  const [showCallSurface, setShowCallSurface] = useState(true);
+  const [showPutSurface, setShowPutSurface] = useState(true);
+
+  const updateParam = useCallback(
+    <K extends keyof MonteCarloParams>(key: K, value: MonteCarloParams[K]) => {
+      setParams((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
+  // Debounced API call for Monte Carlo
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      setIsLoading(true);
+      fetchMonteCarlo(params)
+        .then((apiResults) => {
+          setResults(apiResults);
+        })
+        .catch((error) => {
+          console.error("Error fetching Monte Carlo calculation:", error);
+          setResults({ callPrice: 0, putPrice: 0 });
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+      return;
+    }
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    setIsLoading(true);
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const apiResults = await fetchMonteCarlo(params);
+        setResults(apiResults);
+      } catch (error) {
+        console.error("Error fetching Monte Carlo calculation:", error);
+        setResults({ callPrice: 0, putPrice: 0 });
+      } finally {
+        setIsLoading(false);
+      }
+    }, DEBOUNCE_DELAY);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [params]);
+
+  const handleReset = useCallback(() => {
+    setParams(DEFAULT_PARAMS);
+    setHighlightedLine(null);
+  }, []);
+
+  // Use Black-Scholes for Greeks and curves (Monte Carlo doesn't have analytical Greeks)
+  const bsParams: BlackScholesParams = {
+    spotPrice: params.spotPrice,
+    strikePrice: params.strikePrice,
+    timeToMaturity: params.timeToMaturity,
+    volatility: params.volatility,
+    riskFreeRate: params.riskFreeRate,
+  };
+
+  const greeks = useMemo(() => calculateGreeks(bsParams), [bsParams]);
+  const deltaCurveData = useMemo(() => {
+    const minSpot = Math.max(1, params.strikePrice * 0.5);
+    const maxSpot = params.strikePrice * 1.5;
+    return generateDeltaCurve(bsParams, { min: minSpot, max: maxSpot, steps: 100 });
+  }, [bsParams, params.strikePrice]);
+  const callPutCurveData = useMemo(() => {
+    const minSpot = Math.max(1, params.strikePrice * 0.5);
+    const maxSpot = params.strikePrice * 1.5;
+    return generateCallPutCurve(bsParams, { min: minSpot, max: maxSpot, steps: 100 });
+  }, [bsParams, params.strikePrice]);
+
+  // Fetch Greeks curves
+  useEffect(() => {
+    const fetchCurves = async () => {
+      const minSpot = Math.max(1, params.strikePrice * 0.5);
+      const maxSpot = params.strikePrice * 1.5;
+      
+      try {
+        const [gamma, vega, theta] = await Promise.all([
+          fetchGreeksCurve({
+            ...bsParams,
+            rangeMin: minSpot,
+            rangeMax: maxSpot,
+            steps: 100,
+            curveType: "gamma",
+          }),
+          fetchGreeksCurve({
+            ...bsParams,
+            rangeMin: minSpot,
+            rangeMax: maxSpot,
+            steps: 100,
+            curveType: "vega",
+          }),
+          fetchGreeksCurve({
+            ...bsParams,
+            rangeMin: 0.01,
+            rangeMax: params.timeToMaturity * 2,
+            steps: 100,
+            curveType: "theta",
+          }),
+        ]);
+        setGammaCurve(gamma);
+        setVegaCurve(vega);
+        setThetaCurve(theta);
+      } catch (error) {
+        console.error("Error fetching Greeks curves:", error);
+      }
+    };
+
+    const timer = setTimeout(fetchCurves, DEBOUNCE_DELAY);
+    return () => clearTimeout(timer);
+  }, [params, bsParams]);
+
+  // Fetch 3D surface data
+  useEffect(() => {
+    const fetchSurface = async () => {
+      const minSpot = Math.max(1, params.strikePrice * 0.5);
+      const maxSpot = params.strikePrice * 1.5;
+      
+      try {
+        const data = await fetchSurface3D({
+          ...bsParams,
+          spotMin: minSpot,
+          spotMax: maxSpot,
+          timeMin: 0.01,
+          timeMax: params.timeToMaturity * 2,
+          spotSteps: 25,
+          timeSteps: 25,
+          model: "monte-carlo",
+          simulations: params.simulations,
+        });
+        setSurfaceData(data);
+      } catch (error) {
+        console.error("Error fetching surface data:", error);
+      }
+    };
+
+    const timer = setTimeout(fetchSurface, DEBOUNCE_DELAY * 2);
+    return () => clearTimeout(timer);
+  }, [params, bsParams]);
+
+  return (
+    <div className="min-h-screen w-full bg-black text-green-400 font-mono">
+      <div className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
+        {/* Header */}
+        <div className="border-b border-[#1a1a1a] pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-[#00ff00] uppercase tracking-wider">
+                MONTE CARLO OPTION PRICING MODEL
+              </h1>
+              <p className="mt-1 text-xs text-[#666666]">
+                Geometric Brownian Motion | Stochastic simulation
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="px-3 py-1 border border-[#1a1a1a] bg-[#0a0a0a] text-[#00ff00] hover:border-[#00ff00] text-xs uppercase tracking-wider transition-colors"
+              >
+                BLACK-SCHOLES
+              </Link>
+              <Link
+                href="/binomial"
+                className="px-3 py-1 border border-[#1a1a1a] bg-[#0a0a0a] text-[#00ff00] hover:border-[#00ff00] text-xs uppercase tracking-wider transition-colors"
+              >
+                BINOMIAL
+              </Link>
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-1 px-3 py-1 border border-[#1a1a1a] bg-[#0a0a0a] text-[#00ff00] hover:border-[#00ff00] text-xs uppercase tracking-wider transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                RESET
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Parameter Control Panel */}
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 space-y-4">
+          <div className="border-b border-[#1a1a1a] pb-2">
+            <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+              PARAMETERS
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sliders */}
+            <div className="space-y-4">
+              <ParameterSlider
+                label="Spot Price (S)"
+                value={params.spotPrice}
+                onChange={(v) => updateParam("spotPrice", v)}
+                min={1}
+                max={500}
+                step={1}
+                unit="$"
+                formatValue={(v) => v.toFixed(0)}
+                accentColor="cyan"
+              />
+              <ParameterSlider
+                label="Volatility (σ)"
+                value={params.volatility}
+                onChange={(v) => updateParam("volatility", v)}
+                min={0.01}
+                max={1.0}
+                step={0.01}
+                unit="%"
+                formatValue={(v) => (v * 100).toFixed(0)}
+                accentColor="amber"
+              />
+              <ParameterSlider
+                label="Simulations"
+                value={params.simulations}
+                onChange={(v) => updateParam("simulations", Math.round(v))}
+                min={1000}
+                max={50000}
+                step={1000}
+                formatValue={(v) => Math.round(v).toLocaleString()}
+                accentColor="cyan"
+              />
+            </div>
+
+            {/* Numeric Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <ParameterInput
+                label="Strike (K)"
+                value={params.strikePrice}
+                onChange={(v) => updateParam("strikePrice", v)}
+                min={1}
+                max={1000}
+                step={1}
+                unit="$"
+              />
+              <ParameterInput
+                label="Time (T)"
+                value={params.timeToMaturity}
+                onChange={(v) => updateParam("timeToMaturity", v)}
+                min={0.01}
+                max={10}
+                step={0.01}
+                unit="yrs"
+              />
+              <ParameterInput
+                label="Rate (r)"
+                value={params.riskFreeRate}
+                onChange={(v) => updateParam("riskFreeRate", v)}
+                min={0}
+                max={0.5}
+                step={0.001}
+                unit="%"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Output Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <OutputCard
+            label="CALL PRICE"
+            value={results.callPrice}
+            type="call"
+            isHighlighted={highlightedLine === "call"}
+            onClick={() =>
+              setHighlightedLine((prev) => (prev === "call" ? null : "call"))
+            }
+            isLoading={isLoading}
+          />
+          <OutputCard
+            label="PUT PRICE"
+            value={results.putPrice}
+            type="put"
+            isHighlighted={highlightedLine === "put"}
+            onClick={() =>
+              setHighlightedLine((prev) => (prev === "put" ? null : "put"))
+            }
+            isLoading={isLoading}
+          />
+        </div>
+
+        {/* Call and Put vs Spot Price Chart */}
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+          <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+            <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+              CALL AND PUT vs SPOT PRICE
+            </h2>
+          </div>
+          <div className="h-[300px]">
+            <CallAndPutChart
+              spotPrices={callPutCurveData.spotPrices}
+              callPrices={callPutCurveData.callPrices}
+              putPrices={callPutCurveData.putPrices}
+              currentSpotPrice={params.spotPrice}
+              strikePrice={params.strikePrice}
+              highlightedLine={highlightedLine}
+            />
+          </div>
+        </div>
+
+        {/* Delta Chart */}
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+          <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+            <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+              DELTA vs SPOT PRICE
+            </h2>
+          </div>
+          <div className="h-[300px]">
+            <DeltaChart
+              spotPrices={deltaCurveData.spotPrices}
+              callDeltas={deltaCurveData.callDeltas}
+              putDeltas={deltaCurveData.putDeltas}
+              currentSpotPrice={params.spotPrice}
+              strikePrice={params.strikePrice}
+              highlightedLine={highlightedLine}
+            />
+          </div>
+        </div>
+
+        {/* Gamma Chart */}
+        {gammaCurve && (
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                GAMMA vs SPOT PRICE
+              </h2>
+            </div>
+            <div className="h-[300px]">
+              <GreeksChart
+                xValues={gammaCurve.xValues}
+                yValues={gammaCurve.yValues}
+                xLabel="SPOT PRICE (S)"
+                yLabel="Γ"
+                title="GAMMA"
+                currentX={params.spotPrice}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Vega Chart */}
+        {vegaCurve && (
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                VEGA vs SPOT PRICE
+              </h2>
+            </div>
+            <div className="h-[300px]">
+              <GreeksChart
+                xValues={vegaCurve.xValues}
+                yValues={vegaCurve.yValues}
+                xLabel="SPOT PRICE (S)"
+                yLabel="ν"
+                title="VEGA"
+                currentX={params.spotPrice}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Theta Chart */}
+        {thetaCurve && (
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                THETA vs TIME
+              </h2>
+            </div>
+            <div className="h-[300px]">
+              <GreeksChart
+                xValues={thetaCurve.xValues}
+                yValues={thetaCurve.yValues}
+                xLabel="TIME TO EXPIRY (T)"
+                yLabel="Θ"
+                title="THETA"
+                currentX={params.timeToMaturity}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 3D Surface Chart */}
+        {surfaceData && (
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                  3D OPTION PRICE SURFACE
+                </h2>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-xs text-[#666666]">
+                    <input
+                      type="checkbox"
+                      checked={showCallSurface}
+                      onChange={(e) => setShowCallSurface(e.target.checked)}
+                      className="accent-[#00ff00]"
+                    />
+                    CALL
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-[#666666]">
+                    <input
+                      type="checkbox"
+                      checked={showPutSurface}
+                      onChange={(e) => setShowPutSurface(e.target.checked)}
+                      className="accent-[#ff0000]"
+                    />
+                    PUT
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="h-[500px]">
+              <Surface3DChart
+                spotPrices={surfaceData.spotPrices}
+                times={surfaceData.times}
+                callPrices={surfaceData.callPrices}
+                putPrices={surfaceData.putPrices}
+                showCall={showCallSurface}
+                showPut={showPutSurface}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Greeks Mini-Dashboard */}
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+          <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+            <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+              GREEKS (Black-Scholes approximation)
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <GreekCard
+              label="Δ CALL"
+              value={greeks.delta.call}
+              description="∂C/∂S"
+            />
+            <GreekCard
+              label="Δ PUT"
+              value={greeks.delta.put}
+              description="∂P/∂S"
+            />
+            <GreekCard
+              label="Γ"
+              value={greeks.gamma}
+              description="∂²C/∂S²"
+            />
+            <GreekCard
+              label="Θ"
+              value={greeks.theta.call}
+              description="∂C/∂t"
+            />
+            <GreekCard
+              label="ν"
+              value={greeks.vega}
+              description="∂C/∂σ"
+            />
+            <GreekCard
+              label="ρ"
+              value={greeks.rho.call}
+              description="∂C/∂r"
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center text-xs text-[#555555] border-t border-[#1a1a1a] pt-3">
+          ASSUMPTIONS: Geometric Brownian Motion, risk-neutral measure, constant volatility
+        </div>
+      </div>
+    </div>
+  );
+}
+
