@@ -17,7 +17,7 @@ import { fetchGreeksCurve } from "@/api/greeks";
 import { fetchSurface3D } from "@/api/surface3d";
 import { GreeksChart } from "./GreeksChart";
 import { Surface3DChart } from "./Surface3DChart";
-import Link from "next/link";
+import { ModelNavigation } from "./ModelNavigation";
 
 const DEFAULT_PARAMS: BinomialParams = {
   spotPrice: 100,
@@ -148,9 +148,9 @@ export function BinomialVisualizer() {
 
   return (
     <div className="min-h-screen w-full bg-black text-green-400 font-mono">
-      <div className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-[1800px] mx-auto px-3 py-3 space-y-3">
         {/* Header */}
-        <div className="border-b border-[#1a1a1a] pb-3">
+        <div className="border-b border-[#1a1a1a] pb-2">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-[#00ff00] uppercase tracking-wider">
@@ -161,18 +161,7 @@ export function BinomialVisualizer() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                href="/"
-                className="px-3 py-1 border border-[#1a1a1a] bg-[#0a0a0a] text-[#00ff00] hover:border-[#00ff00] text-xs uppercase tracking-wider transition-colors"
-              >
-                BLACK-SCHOLES
-              </Link>
-              <Link
-                href="/monte-carlo"
-                className="px-3 py-1 border border-[#1a1a1a] bg-[#0a0a0a] text-[#00ff00] hover:border-[#00ff00] text-xs uppercase tracking-wider transition-colors"
-              >
-                MONTE CARLO
-              </Link>
+              <ModelNavigation />
               <button
                 onClick={handleReset}
                 className="flex items-center gap-1 px-3 py-1 border border-[#1a1a1a] bg-[#0a0a0a] text-[#00ff00] hover:border-[#00ff00] text-xs uppercase tracking-wider transition-colors"
@@ -185,14 +174,14 @@ export function BinomialVisualizer() {
         </div>
 
         {/* Parameter Control Panel */}
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 space-y-4">
-          <div className="border-b border-[#1a1a1a] pb-2">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3 space-y-2">
+          <div className="border-b border-[#1a1a1a] pb-1">
             <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
               PARAMETERS
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Sliders */}
             <div className="space-y-4">
               <ParameterSlider
@@ -263,7 +252,7 @@ export function BinomialVisualizer() {
         </div>
 
         {/* Output Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <OutputCard
             label="CALL PRICE"
             value={results.callPrice}
@@ -284,14 +273,16 @@ export function BinomialVisualizer() {
           />
         </div>
 
-        {/* Delta Chart */}
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-          <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-            <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-              DELTA vs SPOT PRICE
-            </h2>
-          </div>
-          <div className="h-[300px]">
+        {/* Charts Grid - 2 columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Delta Chart */}
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+            <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                DELTA vs SPOT PRICE
+              </h2>
+            </div>
+            <div className="h-[250px]">
             <DeltaChart
               spotPrices={deltaCurveData.spotPrices}
               callDeltas={deltaCurveData.callDeltas}
@@ -300,18 +291,21 @@ export function BinomialVisualizer() {
               strikePrice={params.strikePrice}
               highlightedLine={highlightedLine}
             />
+            </div>
           </div>
         </div>
 
-        {/* Gamma Chart */}
-        {gammaCurve && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-                GAMMA vs SPOT PRICE
-              </h2>
-            </div>
-            <div className="h-[300px]">
+        {/* Greeks Charts Grid - 3 columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {/* Gamma Chart */}
+          {gammaCurve && (
+            <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+              <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+                <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                  GAMMA vs SPOT PRICE
+                </h2>
+              </div>
+              <div className="h-[250px]">
               <GreeksChart
                 xValues={gammaCurve.xValues}
                 yValues={gammaCurve.yValues}
@@ -320,19 +314,19 @@ export function BinomialVisualizer() {
                 title="GAMMA"
                 currentX={params.spotPrice}
               />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Vega Chart */}
-        {vegaCurve && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-                VEGA vs SPOT PRICE
-              </h2>
-            </div>
-            <div className="h-[300px]">
+          {/* Vega Chart */}
+          {vegaCurve && (
+            <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+              <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+                <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                  VEGA vs SPOT PRICE
+                </h2>
+              </div>
+              <div className="h-[250px]">
               <GreeksChart
                 xValues={vegaCurve.xValues}
                 yValues={vegaCurve.yValues}
@@ -341,19 +335,19 @@ export function BinomialVisualizer() {
                 title="VEGA"
                 currentX={params.spotPrice}
               />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Theta Chart */}
-        {thetaCurve && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-                THETA vs TIME
-              </h2>
-            </div>
-            <div className="h-[300px]">
+          {/* Theta Chart */}
+          {thetaCurve && (
+            <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+              <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+                <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                  THETA vs TIME
+                </h2>
+              </div>
+              <div className="h-[250px]">
               <GreeksChart
                 xValues={thetaCurve.xValues}
                 yValues={thetaCurve.yValues}
@@ -362,14 +356,15 @@ export function BinomialVisualizer() {
                 title="THETA"
                 currentX={params.timeToMaturity}
               />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* 3D Surface Chart */}
         {surfaceData && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+            <div className="border-b border-[#1a1a1a] pb-1 mb-2">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
                   3D OPTION PRICE SURFACE
@@ -396,7 +391,7 @@ export function BinomialVisualizer() {
                 </div>
               </div>
             </div>
-            <div className="h-[500px]">
+            <div className="h-[400px]">
               <Surface3DChart
                 spotPrices={surfaceData.spotPrices}
                 times={surfaceData.times}

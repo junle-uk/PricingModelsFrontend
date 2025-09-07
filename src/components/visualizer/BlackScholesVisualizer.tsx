@@ -19,7 +19,7 @@ import { fetchGreeksCurve } from "@/api/greeks";
 import { fetchSurface3D } from "@/api/surface3d";
 import { GreeksChart } from "./GreeksChart";
 import { Surface3DChart } from "./Surface3DChart";
-import Link from "next/link";
+import { ModelNavigation } from "./ModelNavigation";
 
 const DEFAULT_PARAMS: BlackScholesParams = {
   spotPrice: 100,
@@ -213,9 +213,9 @@ export function BlackScholesVisualizer() {
 
   return (
     <div className="min-h-screen w-full bg-black text-green-400 font-mono">
-      <div className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-[1800px] mx-auto px-3 py-3 space-y-3">
         {/* Header */}
-        <div className="border-b border-[#1a1a1a] pb-3">
+        <div className="border-b border-[#1a1a1a] pb-2">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-[#00ff00] uppercase tracking-wider">
@@ -226,12 +226,7 @@ export function BlackScholesVisualizer() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                href="/binomial"
-                className="px-3 py-1 border border-[#1a1a1a] bg-[#0a0a0a] text-[#00ff00] hover:border-[#00ff00] text-xs uppercase tracking-wider transition-colors"
-              >
-                BINOMIAL
-              </Link>
+              <ModelNavigation />
               <button
                 onClick={handleReset}
                 className="flex items-center gap-1 px-3 py-1 border border-[#1a1a1a] bg-[#0a0a0a] text-[#00ff00] hover:border-[#00ff00] text-xs uppercase tracking-wider transition-colors"
@@ -244,14 +239,14 @@ export function BlackScholesVisualizer() {
         </div>
 
         {/* Parameter Control Panel */}
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 space-y-4">
-          <div className="border-b border-[#1a1a1a] pb-2">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3 space-y-2">
+          <div className="border-b border-[#1a1a1a] pb-1">
             <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
               PARAMETERS
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Sliders */}
             <div className="space-y-4">
               <ParameterSlider
@@ -312,7 +307,7 @@ export function BlackScholesVisualizer() {
         </div>
 
         {/* Output Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <OutputCard
             label="CALL PRICE"
             value={results.callPrice}
@@ -335,14 +330,16 @@ export function BlackScholesVisualizer() {
           />
         </div>
 
-        {/* Call and Put vs Spot Price Chart */}
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-          <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-            <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-              CALL AND PUT vs SPOT PRICE
-            </h2>
-          </div>
-          <div className="h-[300px]">
+        {/* Charts Grid - 2 columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Call and Put vs Spot Price Chart */}
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+            <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                CALL AND PUT vs SPOT PRICE
+              </h2>
+            </div>
+            <div className="h-[250px]">
             <CallAndPutChart
               spotPrices={callPutCurveData.spotPrices}
               callPrices={callPutCurveData.callPrices}
@@ -351,17 +348,17 @@ export function BlackScholesVisualizer() {
               strikePrice={params.strikePrice}
               highlightedLine={highlightedLine}
             />
+            </div>
           </div>
-        </div>
 
-        {/* Delta Chart */}
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-          <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-            <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-              DELTA vs SPOT PRICE
-            </h2>
-          </div>
-          <div className="h-[300px]">
+          {/* Delta Chart */}
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+            <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                DELTA vs SPOT PRICE
+              </h2>
+            </div>
+            <div className="h-[250px]">
             <DeltaChart
               spotPrices={deltaCurveData.spotPrices}
               callDeltas={deltaCurveData.callDeltas}
@@ -370,18 +367,21 @@ export function BlackScholesVisualizer() {
               strikePrice={params.strikePrice}
               highlightedLine={highlightedLine}
             />
+            </div>
           </div>
         </div>
 
-        {/* Gamma Chart */}
-        {gammaCurve && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-                GAMMA vs SPOT PRICE
-              </h2>
-            </div>
-            <div className="h-[300px]">
+        {/* Greeks Charts Grid - 3 columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {/* Gamma Chart */}
+          {gammaCurve && (
+            <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+              <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+                <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                  GAMMA vs SPOT PRICE
+                </h2>
+              </div>
+              <div className="h-[250px]">
               <GreeksChart
                 xValues={gammaCurve.xValues}
                 yValues={gammaCurve.yValues}
@@ -390,19 +390,19 @@ export function BlackScholesVisualizer() {
                 title="GAMMA"
                 currentX={params.spotPrice}
               />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Vega Chart */}
-        {vegaCurve && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-                VEGA vs SPOT PRICE
-              </h2>
-            </div>
-            <div className="h-[300px]">
+          {/* Vega Chart */}
+          {vegaCurve && (
+            <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+              <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+                <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                  VEGA vs SPOT PRICE
+                </h2>
+              </div>
+              <div className="h-[250px]">
               <GreeksChart
                 xValues={vegaCurve.xValues}
                 yValues={vegaCurve.yValues}
@@ -411,19 +411,19 @@ export function BlackScholesVisualizer() {
                 title="VEGA"
                 currentX={params.spotPrice}
               />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Theta Chart */}
-        {thetaCurve && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
-              <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
-                THETA vs TIME
-              </h2>
-            </div>
-            <div className="h-[300px]">
+          {/* Theta Chart */}
+          {thetaCurve && (
+            <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+              <div className="border-b border-[#1a1a1a] pb-1 mb-2">
+                <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
+                  THETA vs TIME
+                </h2>
+              </div>
+              <div className="h-[250px]">
               <GreeksChart
                 xValues={thetaCurve.xValues}
                 yValues={thetaCurve.yValues}
@@ -432,14 +432,15 @@ export function BlackScholesVisualizer() {
                 title="THETA"
                 currentX={params.timeToMaturity}
               />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* 3D Surface Chart */}
         {surfaceData && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+            <div className="border-b border-[#1a1a1a] pb-1 mb-2">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
                   3D OPTION PRICE SURFACE
@@ -466,7 +467,7 @@ export function BlackScholesVisualizer() {
                 </div>
               </div>
             </div>
-            <div className="h-[500px]">
+            <div className="h-[400px]">
               <Surface3DChart
                 spotPrices={surfaceData.spotPrices}
                 times={surfaceData.times}
@@ -480,13 +481,13 @@ export function BlackScholesVisualizer() {
         )}
 
         {/* Greeks Mini-Dashboard */}
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-          <div className="border-b border-[#1a1a1a] pb-2 mb-4">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3">
+          <div className="border-b border-[#1a1a1a] pb-1 mb-2">
             <h2 className="text-xs uppercase tracking-wider text-[#666666] font-bold">
               GREEKS
             </h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
             <GreekCard
               label="Δ CALL"
               value={greeks.delta.call}
