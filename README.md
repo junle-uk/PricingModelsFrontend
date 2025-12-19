@@ -9,6 +9,7 @@
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.0-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 
+The backend is in Python FastApi but because of my incapabilities to manage my api keys properly,  its' a separate private REPO.
 ---
 
 </div>
